@@ -37,6 +37,28 @@ frontend · MCP Python SDK. Fully local — no cloud, no API keys. Data lives in
 
 ---
 
+## 2026-06-18 — Session 20: Public showcase — docs + GitHub repo
+
+Packaged Kairō for public showcase and shipped it to GitHub.
+
+- **App Store submission guide** — `docs/APP_STORE_SUBMISSION.md`: prerequisites,
+  draft metadata (name/subtitle/description/keywords/category), App Privacy answers
+  (Data Not Collected), 6.9" screenshot spec, archive/upload + TestFlight steps, and
+  review notes (on-device, Foundation Models availability). Icon + privacy policy
+  were already done.
+- **Showcase README** — rewrote `README.md` reflecting the *current* product
+  (standalone on-device iOS app + local engine, not the old "Milestone 1" framing),
+  with a curated screenshot gallery (`docs/screenshots/`: icon, home, streak mascot,
+  widget, reminders) and badges. Added an **MIT `LICENSE`**.
+- **Privacy/secrets hygiene for going public:** scrubbed personal identifiers —
+  `scripts/deploy_device.sh` now uses env-overridable placeholders (`KAIRO_TEAM_ID`,
+  `KAIRO_DEVICE_UDID`, `KAIRO_DEVICE_CORE`) instead of the real Team ID/UDIDs, and the
+  privacy docs use a placeholder contact. `.gitignore` now excludes the business/
+  investor `.docx`/`.pdf` + `docs/INVESTOR_NARRATIVE.md`, the generated `*.xcodeproj`,
+  and build dirs. Verified the staged set (148 files) and the pushed remote contain
+  **no** secrets, business docs, or build artifacts.
+- **Public repo:** **https://github.com/Narayan-Shanku/kairo-app** (MIT, public).
+
 ## 2026-06-18 — Session 19: Streak widget + "Kairo the sun" mascot
 
 A Duolingo-style streak layer: a home-screen widget with a mascot whose mood
