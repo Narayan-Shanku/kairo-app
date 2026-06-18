@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kairō — Your memory</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="/" title="Back to home">
+        <span class="brand-mark">◐</span>
+        <span class="brand-text">
+          <span class="logo">Kair<span class="brand-o">ō</span></span>
+          <span class="tagline">your second memory</span>
+        </span>
+      </a>
+      <div id="health" class="health" title="Local model status">●</div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-view="home">Home</button>
+      <button class="tab" data-view="record">Record</button>
+      <button class="tab" data-view="ask">Ask</button>
+      <button class="tab" data-view="review">Review</button>
+      <button class="tab" data-view="digest">Digest</button>
+      <button class="tab" data-view="timeline">Timeline</button>
+      <button class="tab" data-view="insights">Insights</button>
+    </nav>
+
+    <main>
+      <!-- HOME -->
+      <section id="home" class="view active">
+        <div class="greeting" id="greeting">Welcome back.</div>
+        <p class="sub">What's on your mind today?</p>
+        <button class="record-cta" data-view-jump="record">
+          <span class="mic">🎙</span> Start a check-in
+        </button>
+        <div id="proactive"></div>
+        <div id="demoBanner" class="demo-banner" hidden>
+          <div>
+            <strong>New here?</strong> Load a sample memory set to see Kairō in action.
+          </div>
+          <button id="seedBtn" class="ghost-sm">Load demo memories</button>
+        </div>
+        <button id="reviewBadge" class="review-badge" data-view-jump="review" hidden></button>
+        <div class="stat-row" id="home-stats"></div>
+        <h3 class="section-title">Recent memories</h3>
+        <div id="home-recent" class="memory-list"></div>
+      </section>
+
+      <!-- RECORD -->
+      <section id="record" class="view">
+        <h2>Daily check-in</h2>
+        <p class="sub">Speak naturally for up to 5 minutes — what you learned,
+          decided, or noticed today.</p>
+
+        <div class="recorder">
+          <div class="waveform" id="waveform"><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="timer" id="timer">0:00</div>
+          <button id="recBtn" class="rec-button">Record</button>
+          <div class="hint" id="recHint">Tap to start. Tap again to stop &amp; save.</div>
+        </div>
+
+        <div class="divider"><span>or write it</span></div>
+        <textarea id="textEntry" placeholder="Type a quick entry…"></textarea>
+        <button id="saveTextBtn" class="primary">Save entry</button>
+
+        <div id="captureResult" class="capture-result"></div>
+      </section>
+
+      <!-- ASK -->
+      <section id="ask" class="view">
+        <h2>Ask your memory</h2>
+        <p class="sub">Every answer is grounded in your own words — with citations.</p>
+        <div id="chat" class="chat">
+          <div class="chat-empty" id="chatEmpty">
+            <div class="chat-empty-mark">◐</div>
+            <p>Ask anything about your past. Try:</p>
+            <div class="suggestions">
+              <button class="suggest">What triggers my bloating?</button>
+              <button class="suggest">What helps my afternoon focus?</button>
+              <button class="suggest">What did I learn this month?</button>
+            </div>
+          </div>
+        </div>
+        <form id="askForm" class="ask-bar">
+          <input id="askInput" type="text" placeholder="Ask your memory…" autocomplete="off" />
+          <button class="primary" type="submit">Ask</button>
+        </form>
+      </section>
+
+      <!-- REVIEW -->
+      <section id="review" class="view">
+        <h2>Review</h2>
+        <p class="sub">Spaced repetition for your own insights — recall them so they actually stick.</p>
+        <div id="reviewArea"></div>
+      </section>
+
+      <!-- DIGEST -->
+      <section id="digest" class="view">
+        <div class="digest-head">
+          <div>
+            <h2>Weekly digest</h2>
+            <p class="sub">An AI reflection on your week, grounded in your own memories.</p>
+          </div>
+          <button id="refreshDigest" class="ghost-sm">↻ Regenerate</button>
+        </div>
+        <div id="digestContent"></div>
+      </section>
+
+      <!-- TIMELINE -->
+      <section id="timeline" class="view">
+        <h2>Memory timeline</h2>
+        <div id="domainPills" class="pills"></div>
+        <div id="timelineList" class="memory-list"></div>
+      </section>
+
+      <!-- INSIGHTS -->
+      <section id="insights" class="view">
+        <h2>Domain insights</h2>
+        <p class="sub" id="insightsTotal"></p>
+        <div id="domainBars" class="bars"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Kairō sync server — tiny, stateless-ish, zero-knowledge blob store.
+# This is the piece you deploy publicly (no GPU, no Kairō deps, no secrets).
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py .
+
+# Encrypted blobs live here — mount a persistent volume in production.
+ENV KAIRO_SYNC_DIR=/data
+VOLUME ["/data"]
+EXPOSE 8787
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8787"]

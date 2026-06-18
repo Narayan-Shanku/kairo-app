@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+ios/
+docs/
+*.docx
+*.pdf
+.git/
+.DS_Store
+build/
+.kairo/

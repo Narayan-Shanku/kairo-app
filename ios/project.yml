@@ -1,0 +1,106 @@
+name: Kairo
+options:
+  bundleIdPrefix: com.kairo
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit.git
+    from: "0.9.0"
+
+targets:
+  Kairo:
+    type: application
+    platform: iOS
+    sources:
+      - path: Kairo
+      - path: KairoShared
+    dependencies:
+      - package: WhisperKit
+      - target: KairoWidget        # embed the widget extension
+    entitlements:
+      path: Kairo/Kairo.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.kairomemory.kairo
+    info:
+      path: Kairo/Info.plist
+      properties:
+        CFBundleDisplayName: Kairō
+        CFBundleShortVersionString: "0.2.0"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSMicrophoneUsageDescription: "Kairō records your voice check-ins so it can transcribe and remember them — on your device."
+        NSSpeechRecognitionUsageDescription: "Kairō transcribes your voice check-ins on your device using Apple's Speech recognition."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UIAppFonts:
+          - DMSerifDisplay-Regular.ttf
+          - DMSans.ttf
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kairomemory.kairo
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        # Set your Apple Developer Team ID here (or pick the team in Xcode's
+        # Signing & Capabilities tab) to sign for a physical device.
+        DEVELOPMENT_TEAM: ""
+
+  KairoWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: KairoWidget
+      - path: KairoShared
+    entitlements:
+      path: KairoWidget/KairoWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.kairomemory.kairo
+    info:
+      path: KairoWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Kairō
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kairomemory.kairo.widget
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        SKIP_INSTALL: YES
+
+  KairoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: KairoTests
+    dependencies:
+      - target: Kairo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kairomemory.kairo.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Kairo:
+    build:
+      targets:
+        Kairo: all
+    run:
+      config: Debug
+    test:
+      targets:
+        - KairoTests

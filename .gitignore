@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# uv
+uv.lock
+
+# Kairō runtime data lives in ~/.kairo (outside the repo). Never commit user data.
+.kairo/
+
+# Xcode / iOS (project is regenerated from ios/project.yml via XcodeGen)
+ios/build/
+ios/build-device/
+ios/DerivedData/
+ios/*.xcodeproj/
+ios/SourcePackages/
+**/xcuserdata/
+**/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Business / strategy material — kept local, not part of the public showcase
+*.docx
+*.pdf
+docs/INVESTOR_NARRATIVE.md
+
+# iCloud / Finder duplicate artifacts (e.g. "BUILD_LOG 2.md")
+* [0-9].md
+* [0-9].swift
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

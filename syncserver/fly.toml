@@ -1,0 +1,29 @@
+# Fly.io config for the Kairō sync server. Deploy:
+#   cd syncserver && fly launch --copy-config --name <your-app> && fly deploy
+#   fly secrets set KAIRO_SYNC_TOKEN=$(openssl rand -hex 16)
+app = "kairo-sync"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  KAIRO_SYNC_DIR = "/data"
+
+# Persist encrypted blobs across restarts.
+[[mounts]]
+  source = "kairo_sync_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"

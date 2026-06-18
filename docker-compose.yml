@@ -1,0 +1,36 @@
+# Full self-hosted Kairō stack: backend + local LLM + encrypted-sync server.
+# Bring it up with:  docker compose up --build
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    # First run: docker compose exec ollama ollama pull llama3.1:8b && ... nomic-embed-text
+
+  backend:
+    build: .
+    environment:
+      KAIRO_HOME: /data
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - kairo:/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+
+  syncserver:
+    build: ./syncserver
+    environment:
+      KAIRO_SYNC_DIR: /data
+    volumes:
+      - sync:/data
+    ports:
+      - "8787:8787"
+
+volumes:
+  ollama:
+  kairo:
+  sync:
