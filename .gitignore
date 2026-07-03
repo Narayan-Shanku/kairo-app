@@ -25,9 +25,11 @@ ios/SourcePackages/
 *.pdf
 docs/INVESTOR_NARRATIVE.md
 
-# iCloud / Finder duplicate artifacts (e.g. "BUILD_LOG 2.md")
+# iCloud / Finder duplicate artifacts (e.g. "BUILD_LOG 2.md", "Info 2.plist")
 * [0-9].md
 * [0-9].swift
+* [0-9].plist
+* [0-9].json
 
 # OS / editor
 .DS_Store
