@@ -15,20 +15,28 @@
 | MCP server (memory as a context layer for any AI agent) | ✅ Working, manual register |
 | Memory Review — spaced-repetition flashcards (SM-2) | ✅ Working |
 | Demo data seeding | ✅ Working |
-| Tests | ✅ 24 backend (pytest) + 29 iOS (Swift Testing) passing |
+| Tests | ✅ 24 backend (pytest) + 28 iOS (Swift Testing) passing |
 | iOS app — MVVM · WhisperKit · offline cache · light/dark · proactive | ✅ Builds, runs, verified |
 | **Standalone on-device iOS** (Foundation Models + NLEmbedding, no backend) | ✅ Built, tested, **sideloaded & running on a physical iPhone 17 Pro Max** |
+| **Cloud answer fallback** (iPhones without Apple Intelligence) | ✅ Deployed + hardened (token gate, daily cap), verified e2e; opt-out in Settings |
+| On-device review-card generation (memories → insight/decision cards) | ✅ Working (confidence-gated, deduped, transient failures retried) |
+| On-device retrieval — sentence chunking · hybrid semantic+keyword RRF · relevance floor | ✅ Working |
 | Proactive Engine — streaks · Day-3 recall · weekly digest · nudges | ✅ Working (web + iOS) |
 | Streak widget — "Kairo the sun" mascot + explicit check-in (WidgetKit, App Group) | ✅ Built + verified in Simulator (device needs paid account) |
-| Check-in reminders — local evening nudge + Settings toggle/time (on-device) | ✅ Built + UI verified; works on free-team device (no App Group needed) |
+| Check-in reminders — local evening nudge + Settings toggle/time (on-device) | ✅ Built + UI verified; permission asked in-context (after first check-in) |
 | Encrypted sync (zero-knowledge) + deployable sync server | ✅ Verified e2e (web ↔ server); iOS client pending |
 | Deployment — Docker/compose · token auth · deploy configs | ✅ Verified locally; cloud provisioning = user |
-| Multi-modal (photo/OCR), browser extension, sync, mobile, enterprise | ⏳ Not started |
+| **App Store readiness** — v1.0.0 · privacy manifests · hosted policy · screenshots · audit | ✅ Code-side complete; pending Apple Developer account (enroll → ASC → TestFlight) |
+| Multi-modal (photo/OCR) | ✋ Dropped by choice — product is complete without it |
+| Browser extension, iOS↔server sync client, enterprise | ⏳ Not started |
 
 **Stack:** Python 3.13 · FastAPI · ChromaDB · SQLite · faster-whisper · Ollama
 (`llama3.1:8b` generation, `nomic-embed-text` embeddings) · vanilla HTML/CSS/JS
-frontend · MCP Python SDK. Fully local — no cloud, no API keys. Data lives in
-`~/.kairo`.
+frontend · MCP Python SDK. Web/server build is fully local (data in `~/.kairo`).
+The iOS app is on-device-first; on iPhones without Apple Intelligence an optional
+stateless Cloudflare Worker (`proxy/`) generates Ask/Digest/card text via the
+Claude API (`claude-haiku-4-5`) — only the retrieved snippets + the question are
+sent, behind a shared token + KV daily cap, with a Settings opt-out.
 
 **Run:**
 - Web app: `uv run uvicorn backend.app:app --reload --port 8000` → landing at `/`, app at `/app`
@@ -36,6 +44,97 @@ frontend · MCP Python SDK. Fully local — no cloud, no API keys. Data lives in
 - Tests: `uv run --extra dev pytest`
 
 ---
+
+## 2026-07-02 — Session 21: Cloud answers for older iPhones · gap-closing · App Store readiness
+
+The big one: extended generated answers beyond Apple-Intelligence hardware,
+closed the flagged product/quality gaps, and took the app to code-side App Store
+readiness. Commits `2518932` → `31d6577` (5 pushes).
+
+**Cloud answer fallback (iPhone 11–14 now get real answers)**
+- `CloudGenerationService` — Ask, the weekly Digest, and card generation now try
+  Apple Foundation Models first and, when unavailable, POST the *already-built
+  prompt* (top-k retrieved snippets + question — never the memory store) to a
+  stateless proxy; extractive/template output remains the final fallback.
+- `proxy/` — Cloudflare Worker calling the Claude Messages API
+  (`claude-haiku-4-5`, ~1.3s round-trip; started on Opus, switched after a
+  quality check). Contract: `{prompt}` → `{answer}`. Task-agnostic (no system
+  prompt) so all three generation tasks share one path.
+- **Hardened:** `SHARED_TOKEN` bearer gate (verified: no/wrong token → 401) +
+  KV-backed global daily request cap (slot reserved *before* the paid call);
+  cap/model are one-line `wrangler.toml` changes; token rotates in ~1 min.
+- **Secrets discipline:** the committed `AppConfig` holds `nil` placeholders;
+  the real proxy URL + token live ONLY as a local uncommitted diff (verified
+  absent from all git history). Archive builds pick them up from the local tree.
+- Settings gained a **"Use private cloud for answers"** opt-out + honest
+  per-device copy (On-device AI / Private cloud / On-device basic).
+
+**On-device review-card generation (biggest product gap closed)**
+- `LocalCardRepository.generateMissing` ports the backend's LLM distillation:
+  memories → `insight`/`decision` cards, JSON verdict, confidence ≥ 0.6 gate,
+  per-memory "attempted" dedup; transient failures release the mark and retry,
+  definitive "not cardworthy" verdicts stay settled. Triggered from Home
+  (background, refreshes the badge) and Review (fills the deck on open). A fresh
+  phone's Review deck now builds itself from real check-ins.
+
+**On-device retrieval upgrade (pragmatic port of the server stack)**
+- Sentence **chunking** on capture (long entries embed per-chunk; `chunkCount`
+  is now real), **hybrid** semantic + keyword search fused with RRF (k=60),
+  best-chunk scoring, a conservative **relevance floor** (honest "I don't have
+  anything relevant to that yet"), and the backend's light suffix **stemmer**
+  (`bloating`/`bloated` → `bloat`). Backward-compatible with pre-chunk stores.
+
+**Fixes surfaced along the way**
+- **Timezone streak bug:** memories are stamped UTC but streaks counted the UTC
+  date slice — evening captures in behind-UTC timezones didn't count toward the
+  day. Now converted to the user's local day.
+- **Test suite restoration:** the mocks had drifted from the repository
+  protocols (missing `checkIn()`), so the iOS test target had silently stopped
+  compiling. Fixed; 28 tests / 8 suites green throughout the session.
+
+**App Store prep (decision: ship cloud-ON)**
+- Privacy surfaces rewritten to match observable behavior — `docs/PRIVACY.md`,
+  `docs/privacy.html`, README: two answer paths, Cloudflare + Anthropic named as
+  processors, the opt-out documented. Nutrition-label guidance changed from
+  "Data Not Collected" to **User Content / App Functionality / Not Linked**.
+- **GitHub Pages enabled** (`main:/docs`) — the policy is live at
+  `https://narayan-shanku.github.io/kairo-app/privacy.html` (the ASC URL).
+- **Version 1.0.0** (app + widget; Settings reads it from the bundle),
+  `ITSAppUsesNonExemptEncryption=false`.
+- **Screenshot harness** — new `KairoUITests` target + `KairoScreenshots`
+  scheme: seeds demo data, checks in, asks a real question (cloud-generated,
+  cited), reveals a review card, generates the digest, opens Settings, switches
+  to Sunset — exporting six spec-size **1320×2868** captures
+  (`docs/screenshots/appstore/`), all visually verified. One command regenerates.
+- **Pre-submission audit** — 4 parallel auditors swept the code-verifiable
+  checklist (debug code/secrets, permissions/privacy, UX robustness,
+  assets/legal/perf) → **1 blocker + 12 warns → 18 fixes:**
+  `PrivacyInfo.xcprivacy` for app **and** widget (was an ITMS-91053 upload
+  failure; verified inside the built bundles), widget version `1.0`→`1.0.0`
+  (caught by the first-ever Release build — which succeeded), ATS exemption
+  removed from the shipping plist, notification permission moved **in-context**
+  (after first check-in, not at launch; Settings explains + deep-links when
+  iOS-denied), corrupt-store protection (`.corrupt.json` aside instead of
+  silent total data loss), standalone transcription chain ends in an actionable
+  error instead of a doomed localhost upload, WhisperKit failed-download retry +
+  retain-cycle fix, 44pt tap targets, launch-screen color (no theme flash),
+  prompt caps (600/400 chars per memory), Ask return-key spam guard, live
+  System-theme re-render, Digest "Regenerating…" hint, API-client timeout +
+  query encoding, Settings **Acknowledgements** (WhisperKit MIT,
+  swift-transformers Apache-2.0, DM fonts OFL).
+- Verified after fixes: 28/28 tests, Release config builds, manifests + versions
+  + launch color confirmed in the built products.
+
+**Deliberately deferred:** store persistence refactor (full-file JSON rewrite
+per mutation — fine at demo scale, hitches at ~500+ memories), WhisperKit
+download prompt (fallback engine only), Settings theming under Sunset, iOS↔
+server sync client. **Dropped by choice:** multimodal (photo/OCR).
+
+**Pending (account/hardware-gated):** Apple Developer enrollment → App IDs +
+App Group → ASC record (metadata is paste-ready) → nutrition label + policy URL
++ screenshots upload → one real-device smoke test → archive (real proxy config
+is in the local tree) → TestFlight → submit. Decisions: launch `DAILY_CAP`,
+manual/phased release.
 
 ## 2026-06-18 — Session 20: Public showcase — docs + GitHub repo
 
