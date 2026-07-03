@@ -34,6 +34,9 @@ struct ReviewView: View {
     }
 
     private func cardView(_ card: Card) -> some View {
+        // Scrolls so long decision cards + the reflection field + rating buttons
+        // stay reachable when the keyboard is up on small devices.
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             Text("\(vm.queue.count) TO REVIEW")
                 .font(.caption.weight(.bold)).kerning(1.5)
@@ -73,9 +76,9 @@ struct ReviewView: View {
                         Button(rating.label) { Task { await vm.rate(rating) } }
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(color)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 13)
+                            .frame(maxWidth: .infinity, minHeight: 44)   // HIG tap target
                             .overlay(RoundedRectangle(cornerRadius: 11).stroke(color.opacity(0.5)))
+                            .contentShape(Rectangle())
                     }
                 }
             } else {
@@ -86,8 +89,9 @@ struct ReviewView: View {
             if let error = vm.errorMessage {
                 Text(error).font(.footnote).foregroundStyle(Theme.danger)
             }
-            Spacer()
         }
+        }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var allCaughtUp: some View {

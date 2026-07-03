@@ -15,6 +15,10 @@ struct DigestView: View {
                         ProgressView().tint(Theme.gold)
                             .frame(maxWidth: .infinity).padding(.top, 50)
                     } else if let d = vm.digest {
+                        if vm.isLoading {   // regenerate with an existing digest on screen
+                            Label("Regenerating…", systemImage: "arrow.clockwise")
+                                .font(.caption).foregroundStyle(Theme.muted)
+                        }
                         Text("\(d.weekStart) → \(d.weekEnd) · \(d.memoryCount ?? 0) memories")
                             .font(.caption.weight(.bold)).kerning(1)
                             .foregroundStyle(Theme.muted)

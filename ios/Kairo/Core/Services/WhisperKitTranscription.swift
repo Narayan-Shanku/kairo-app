@@ -35,14 +35,22 @@ final class WhisperKitTranscription: TranscriptionService {
         }
     }
 
-    /// Loads and caches the WhisperKit model exactly once.
+    /// Loads and caches the WhisperKit model. A successful load is cached for
+    /// the app's lifetime; a FAILED load (e.g. offline first download) clears the
+    /// task so the next capture retries instead of being stuck on the failure.
     private func loadModel() async throws -> WhisperKit {
         if let whisperKit { return whisperKit }
         if let loadTask { return try await loadTask.value }
-        let task = Task { try await WhisperKit(model: modelName) }
+        let name = modelName   // avoid capturing self in the load task
+        let task = Task { try await WhisperKit(model: name) }
         loadTask = task
-        let kit = try await task.value
-        whisperKit = kit
-        return kit
+        do {
+            let kit = try await task.value
+            whisperKit = kit
+            return kit
+        } catch {
+            loadTask = nil
+            throw error
+        }
     }
 }

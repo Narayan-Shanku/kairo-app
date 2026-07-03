@@ -6,9 +6,17 @@ final class KairoAPIClient: KairoAPI {
     private let session: URLSession
     private let decoder = JSONDecoder()
 
-    init(baseURL: URL = AppConfig.baseURL, session: URLSession = .shared) {
+    init(baseURL: URL = AppConfig.baseURL, session: URLSession? = nil) {
         self.baseURL = baseURL
-        self.session = session
+        if let session {
+            self.session = session
+        } else {
+            // Bounded timeouts so an unreachable backend fails fast instead of
+            // hanging on URLSession's 60s default.
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 30
+            self.session = URLSession(configuration: config)
+        }
     }
 
     // MARK: Request bodies
@@ -77,7 +85,10 @@ final class KairoAPIClient: KairoAPI {
 
     func memories(domain: String?, limit: Int) async throws -> [Memory] {
         var path = "api/memories?limit=\(limit)"
-        if let domain { path += "&domain=\(domain)" }
+        if let domain,
+           let encoded = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "&domain=\(encoded)"   // unencoded values would nil-out URL(string:)
+        }
         return try await get(path)
     }
 

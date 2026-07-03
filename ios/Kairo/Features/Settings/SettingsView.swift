@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @AppStorage("themeMode") private var themeModeRaw = ThemeMode.light.rawValue
@@ -6,6 +7,9 @@ struct SettingsView: View {
     @AppStorage("reminderHour") private var reminderHour = 19
     @AppStorage("cloudAnswersEnabled") private var cloudAnswersEnabled = true
     @Environment(\.dismiss) private var dismiss
+    /// The user denied notifications in iOS Settings — the reminders toggle
+    /// would otherwise silently do nothing.
+    @State private var notificationsDenied = false
 
     private let reminderHours = Array(6...23)
     private func hourLabel(_ h: Int) -> String {
@@ -68,15 +72,28 @@ struct SettingsView: View {
                             ForEach(reminderHours, id: \.self) { Text(hourLabel($0)).tag($0) }
                         }
                     }
+                    if remindersEnabled && notificationsDenied {
+                        Button("Notifications are off for Kairō — open iOS Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                        .foregroundStyle(.red)
+                    }
                 } header: {
                     Text("Reminders")
                 } footer: {
-                    Text("If you haven't checked in, Kairo sends an evening nudge so your streak doesn't break. All on-device.")
+                    if remindersEnabled && notificationsDenied {
+                        Text("Reminders can't fire until notifications are allowed for Kairō in iOS Settings.")
+                    } else {
+                        Text("If you haven't checked in, Kairo sends an evening nudge so your streak doesn't break. All on-device.")
+                    }
                 }
                 .onChange(of: remindersEnabled) { _, on in
                     Task {
                         if on { await NotificationService.requestAuthorization() }
                         NotificationService.refresh()
+                        notificationsDenied = await NotificationService.isDenied()
                     }
                 }
                 .onChange(of: reminderHour) { _, _ in NotificationService.refresh() }
@@ -116,7 +133,22 @@ struct SettingsView: View {
                         Text(privacyFooter)
                     }
                 }
+
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Kairō is built with open-source software:")
+                        Text("• WhisperKit — © 2024 Argmax, Inc. (MIT License)")
+                        Text("• swift-transformers — © Hugging Face (Apache License 2.0)")
+                        Text("• DM Sans & DM Serif Display — Colophon Foundry / Google Fonts (SIL Open Font License 1.1)")
+                        Text("Full license texts ship with each project's source repository.")
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                } header: {
+                    Text("Acknowledgements")
+                }
             }
+            .task { notificationsDenied = await NotificationService.isDenied() }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

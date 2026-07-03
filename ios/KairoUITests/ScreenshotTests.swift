@@ -23,8 +23,6 @@ final class ScreenshotTests: XCTestCase {
     }
 
     func testCaptureAppStoreScreenshots() throws {
-        allowNotificationsIfAsked()
-
         // ── 1. Home: seed demo data, check in, wait for the proactive card ──
         let seed = app.buttons.containing(
             NSPredicate(format: "label CONTAINS %@", "Load demo memories")).firstMatch
@@ -35,7 +33,8 @@ final class ScreenshotTests: XCTestCase {
         let checkIn = app.buttons["Check in today"]
         if checkIn.waitForExistence(timeout: 10) {
             checkIn.tap()
-            _ = app.staticTexts["Checked in today ✓"].waitForExistence(timeout: 10)
+            allowNotificationsIfAsked()   // in-context prompt fires after first check-in
+            _ = app.staticTexts["Checked in today ✓"].waitForExistence(timeout: 15)
         }
         // Day-3 recall card (its prompt is generated — give it a moment).
         _ = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "↩"))
@@ -96,8 +95,8 @@ final class ScreenshotTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// A fresh simulator asks for notification permission on first Home load
-    /// (daily reminders default on) — approve so the alert never blocks a tap.
+    /// The notification permission prompt fires in context after the first
+    /// check-in — approve it so the alert never blocks a later tap.
     private func allowNotificationsIfAsked() {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let allow = springboard.alerts.buttons["Allow"]

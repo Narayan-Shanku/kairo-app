@@ -144,7 +144,8 @@ struct LocalProactiveRepository: ProactiveRepository {
         var byDomain: [String: [String]] = [:]
         for m in mems { byDomain[m.domains.first ?? "General", default: []].append(m.text) }
         var ctx = ""
-        for (d, texts) in byDomain { ctx += "\n[\(d)]\n" + texts.map { "- \($0)" }.joined(separator: "\n") }
+        // Cap each memory's contribution so a heavy week can't blow the context window.
+        for (d, texts) in byDomain { ctx += "\n[\(d)]\n" + texts.map { "- \($0.prefix(400))" }.joined(separator: "\n") }
         return """
         You are Kairō writing someone's weekly reflection. Below are this week's memories by domain. \
         Write a warm, concise digest: a one-line opener, 1–2 sentences per domain, one cross-domain \

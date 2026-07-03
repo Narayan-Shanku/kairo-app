@@ -30,13 +30,19 @@ targets:
       properties:
         CFBundleDisplayName: Kairō
         CFBundleShortVersionString: "1.0.0"
-        UILaunchScreen: {}
+        # Launch frame uses a themed color asset (light cream / dark teal) so the
+        # first paint doesn't flash against the app background.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         NSMicrophoneUsageDescription: "Kairō records your voice check-ins so it can transcribe and remember them — on your device."
         NSSpeechRecognitionUsageDescription: "Kairō transcribes your voice check-ins on your device using Apple's Speech recognition."
-        NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
+        # NOTE (local dev only): running against the FastAPI backend over plain
+        # HTTP (standalone=false + localhost/LAN baseURL) needs an ATS exemption.
+        # It must NOT ship in the App Store build — re-add temporarily if needed:
+        #   NSAppTransportSecurity:
+        #     NSAllowsLocalNetworking: true
         # Uses only standard/exempt encryption (HTTPS) — skips the export-compliance
         # prompt on every upload.
         ITSAppUsesNonExemptEncryption: false
@@ -72,6 +78,9 @@ targets:
       path: KairoWidget/Info.plist
       properties:
         CFBundleDisplayName: Kairō
+        # Must match the parent app exactly — App Store validation rejects
+        # extensions whose version differs from the containing app.
+        CFBundleShortVersionString: "1.0.0"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

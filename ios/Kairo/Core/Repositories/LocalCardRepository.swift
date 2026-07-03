@@ -62,9 +62,15 @@ struct LocalCardRepository: CardRepository {
         let confidence: Double
     }
 
+    private enum DistillOutcome {
+        case card(type: String, front: String, back: String)
+        case notCardworthy   // definitive "none"/low-confidence verdict — never retry
+        case unavailable     // no generator / transient failure — retry on a later pass
+    }
+
     /// Distill review cards from recent memories not yet processed. Each memory is
-    /// marked "attempted" before generation (so it's tried once and dedup holds
-    /// even across concurrent calls). Skips entirely when no generator is available.
+    /// marked "attempted" before generation (so dedup holds across concurrent
+    /// calls); transient failures release the mark so the memory is retried later.
     func generateMissing(limit: Int) async -> Int {
         guard generation.isAvailable || cloud.isConfigured else { return 0 }
         let attempted = await store.cardAttempted
@@ -77,35 +83,42 @@ struct LocalCardRepository: CardRepository {
         var created = 0
         for m in candidates {
             await store.markCardAttempted(m.chunkId)     // reserve before distilling
-            guard let card = await distill(m.text) else { continue }
-            let now = LocalMemoryRepository.nowISO()
-            await store.addCard(OnDeviceStore.StoredCard(
-                cardId: UUID().uuidString, type: card.type, front: card.front, back: card.back,
-                domain: m.domains.first ?? "", createdAt: now, dueDate: now,   // due immediately
-                ease: SM2.defaultEase, intervalDays: 0, repetitions: 0, lapses: 0,
-                lastReviewed: nil, sourceMemoryId: m.chunkId))
-            created += 1
+            switch await distill(m.text) {
+            case .card(let type, let front, let back):
+                let now = LocalMemoryRepository.nowISO()
+                await store.addCard(OnDeviceStore.StoredCard(
+                    cardId: UUID().uuidString, type: type, front: front, back: back,
+                    domain: m.domains.first ?? "", createdAt: now, dueDate: now,   // due immediately
+                    ease: SM2.defaultEase, intervalDays: 0, repetitions: 0, lapses: 0,
+                    lastReviewed: nil, sourceMemoryId: m.chunkId))
+                created += 1
+            case .notCardworthy:
+                break                                    // stays marked — settled verdict
+            case .unavailable:
+                await store.unmarkCardAttempted(m.chunkId)  // transient — retry later
+            }
         }
         return created
     }
 
-    /// One memory → an (insight|decision) card, or nil (routine / low-confidence).
-    private func distill(_ text: String) async -> (type: String, front: String, back: String)? {
+    /// One memory → an (insight|decision) card, a definitive "not cardworthy", or
+    /// "unavailable" when no generator could produce a verdict at all.
+    private func distill(_ text: String) async -> DistillOutcome {
         let prompt = cardPrompt(text)
         var raw = await generation.generate(prompt)      // on-device first
         if raw == nil { raw = await cloud.generate(prompt) }  // then cloud (older devices)
-        guard let raw,
-              let json = Self.extractJSON(raw),
+        guard let raw else { return .unavailable }       // no verdict — network/generator failure
+        guard let json = Self.extractJSON(raw),
               let d = try? JSONDecoder().decode(Distilled.self, from: Data(json.utf8))
-        else { return nil }
+        else { return .notCardworthy }                   // unparseable reply — don't loop on it
 
         let type = d.type.lowercased()
         let front = d.front.trimmingCharacters(in: .whitespacesAndNewlines)
         let back = d.back.trimmingCharacters(in: .whitespacesAndNewlines)
         // Quality gate — same bar as the backend (confidence ≥ 0.6, real content).
         guard type == "insight" || type == "decision",
-              !front.isEmpty, !back.isEmpty, d.confidence >= 0.6 else { return nil }
-        return (type, front, back)
+              !front.isEmpty, !back.isEmpty, d.confidence >= 0.6 else { return .notCardworthy }
+        return .card(type: type, front: front, back: back)
     }
 
     /// Pull the JSON object out of a model reply (tolerates code fences / prose).

@@ -161,6 +161,8 @@ struct HomeView: View {
                     .background(Theme.gold).clipShape(Capsule())
                 Button("Dismiss") { Task { await vm.dismissRecall() } }
                     .font(.subheadline).foregroundStyle(Theme.muted)
+                    .frame(minHeight: 44)               // HIG tap-target minimum
+                    .contentShape(Rectangle())
             }
         }
         .padding(18)

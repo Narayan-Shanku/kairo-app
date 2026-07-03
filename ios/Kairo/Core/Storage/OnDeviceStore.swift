@@ -121,13 +121,30 @@ final class OnDeviceStore {
         data.prefs["card_attempted"] = ids.joined(separator: "\n")
         save()
     }
+    /// Release a reservation after a TRANSIENT generation failure so the memory
+    /// is retried on a later pass (definitive "not cardworthy" verdicts stay marked).
+    func unmarkCardAttempted(_ id: String) {
+        var ids = cardAttempted
+        ids.remove(id)
+        data.prefs["card_attempted"] = ids.joined(separator: "\n")
+        save()
+    }
 
     // MARK: Persistence
     private func save() {
         if let d = try? JSONEncoder().encode(data) { try? d.write(to: url, options: .atomic) }
     }
     private func load() {
-        if let d = try? Data(contentsOf: url),
-           let s = try? JSONDecoder().decode(Snapshot.self, from: d) { data = s }
+        guard let d = try? Data(contentsOf: url) else { return }
+        if let s = try? JSONDecoder().decode(Snapshot.self, from: d) {
+            data = s
+        } else {
+            // Corrupt store: move the bytes aside for recovery. Without this, the
+            // next save() would overwrite the user's entire history with an empty
+            // snapshot — permanent data loss from a transient corruption.
+            let backup = url.deletingPathExtension().appendingPathExtension("corrupt.json")
+            try? FileManager.default.removeItem(at: backup)
+            try? FileManager.default.moveItem(at: url, to: backup)
+        }
     }
 }

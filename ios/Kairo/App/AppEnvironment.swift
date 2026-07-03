@@ -61,8 +61,10 @@ final class AppEnvironment {
         let memories = LocalMemoryRepository(store: store)
         let cards = LocalCardRepository(store: store, memories: memories)
         let proactive = LocalProactiveRepository(store: store, memories: memories)
+        // No server exists in standalone — end the chain with a clear error
+        // rather than a doomed localhost upload.
         let transcription = AppleSpeechTranscription(
-            fallback: WhisperKitTranscription(fallback: RemoteTranscription(api: KairoAPIClient())))
+            fallback: WhisperKitTranscription(fallback: UnavailableTranscription()))
         return AppEnvironment(
             api: KairoAPIClient(),       // unused in standalone, kept for the type
             memories: memories,

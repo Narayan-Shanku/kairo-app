@@ -58,6 +58,9 @@ final class HomeViewModel {
 
     func checkIn() async {
         _ = try? await proactive.checkIn()
+        // In-context notification ask: the user just started/extended a streak,
+        // which is exactly what the evening reminders protect.
+        await NotificationService.requestAuthorizationIfNeeded()
         await load()
     }
 

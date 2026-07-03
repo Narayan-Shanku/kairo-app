@@ -174,7 +174,9 @@ struct LocalMemoryRepository: MemoryRepository {
     private func buildPrompt(_ question: String, _ memories: [OnDeviceStore.StoredMemory]) -> String {
         var ctx = ""
         for (i, m) in memories.enumerated() {
-            ctx += "[\(i + 1)] \(DateFormat.pretty(m.timestamp)) (\(m.domains.first ?? "General")): \(m.text)\n"
+            // Cap each memory's contribution so five long voice transcripts can't
+            // blow past the on-device model's context window.
+            ctx += "[\(i + 1)] \(DateFormat.pretty(m.timestamp)) (\(m.domains.first ?? "General")): \(m.text.prefix(600))\n"
         }
         return """
         You are Kairō, a personal memory assistant. Answer ONLY using the memories below. \

@@ -34,7 +34,9 @@ struct AskView: View {
                 Button(s) { Task { await vm.ask(s) } }
                     .font(.subheadline).foregroundStyle(Theme.creamDim)
                     .padding(.horizontal, 14).padding(.vertical, 8)
+                    .frame(minHeight: 44)               // HIG tap-target minimum
                     .overlay(Capsule().stroke(Theme.border))
+                    .contentShape(Capsule())
             }
         }
         .frame(maxWidth: .infinity)
@@ -60,6 +62,8 @@ struct AskView: View {
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.gold)
+                    .frame(minHeight: 44, alignment: .leading)   // HIG tap target
+                    .contentShape(Rectangle())
                     .disabled(ex.pinned)
                 } else {
                     Text("Searching your memories…").italic().foregroundStyle(Theme.muted)
@@ -107,6 +111,7 @@ struct AskView: View {
     }
 
     private func send() {
+        guard !vm.isBusy else { return }   // the keyboard's send isn't disabled with the button
         let q = input
         input = ""
         Task { await vm.ask(q) }

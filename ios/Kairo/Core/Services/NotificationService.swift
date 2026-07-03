@@ -24,9 +24,20 @@ enum NotificationService {
         d.set(lastActiveISO ?? "", forKey: "lastActiveISO")
     }
 
-    /// Ask for permission (once) if reminders are on, then (re)schedule.
+    /// Launch-time bootstrap: (re)schedule reminders if we're already authorized.
+    /// Never prompts — the first permission ask happens in context (after the
+    /// user's first check-in, or when they flip the reminders toggle), per HIG.
     static func bootstrap() async {
-        if remindersEnabled {
+        let status = await center.notificationSettings().authorizationStatus
+        if status == .authorized || status == .provisional { refresh() }
+    }
+
+    /// In-context first-time prompt: ask only if the user was never asked, then
+    /// (re)schedule. Called after a check-in — the moment reminders make sense.
+    static func requestAuthorizationIfNeeded() async {
+        guard remindersEnabled else { return }
+        let status = await center.notificationSettings().authorizationStatus
+        if status == .notDetermined {
             _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
         }
         refresh()
@@ -35,6 +46,12 @@ enum NotificationService {
     @discardableResult
     static func requestAuthorization() async -> Bool {
         (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+    }
+
+    /// Whether the user has explicitly denied notifications in iOS Settings
+    /// (used by Settings to explain why reminders won't fire).
+    static func isDenied() async -> Bool {
+        await center.notificationSettings().authorizationStatus == .denied
     }
 
     /// Cancel and reschedule the next few evening reminders from current streak state.

@@ -20,3 +20,15 @@ struct RemoteTranscription: TranscriptionService {
         try await api.transcribe(audioURL: audioURL).transcript
     }
 }
+
+/// Terminal fallback for standalone builds: there is no server, so if every
+/// on-device engine failed, fail with a clear, actionable message instead of a
+/// doomed network call surfacing a raw NSURLError.
+struct UnavailableTranscription: TranscriptionService {
+    var engineName: String { "on-device" }
+
+    func transcribe(audioURL: URL) async throws -> String {
+        throw APIError(message: "Couldn't transcribe this recording — check Speech "
+            + "Recognition permission for Kairō in iOS Settings, or type your check-in instead.")
+    }
+}

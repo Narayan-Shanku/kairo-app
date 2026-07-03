@@ -3,6 +3,7 @@ import SwiftUI
 struct CaptureView: View {
     @State private var vm: CaptureViewModel
     @State private var text = ""
+    @FocusState private var editorFocused: Bool
 
     init(env: AppEnvironment) {
         _vm = State(initialValue: CaptureViewModel(
@@ -23,6 +24,7 @@ struct CaptureView: View {
                         .font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
 
                     TextEditor(text: $text)
+                        .focused($editorFocused)
                         .frame(minHeight: 110)
                         .scrollContentBackground(.hidden)
                         .padding(10)
@@ -52,8 +54,16 @@ struct CaptureView: View {
                 }
                 .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
             .kairoBackground()
             .navigationTitle("Check-in")
+            .toolbar {
+                // TextEditor has no return-to-dismiss; give the keyboard a Done.
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { editorFocused = false }
+                }
+            }
         }
     }
 
