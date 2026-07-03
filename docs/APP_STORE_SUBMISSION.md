@@ -113,20 +113,32 @@ accurate**. Answer in App Store Connect → App Privacy:
 ## 5. Screenshots (required)
 
 Apple requires **6.9-inch** iPhone screenshots (1320 × 2868 px). 3–5 are enough.
-Suggested set (we already have coastal captures in `docs/screenshots/`):
 
-1. Home with the streak mascot + check-in
-2. Ask → a cited answer
-3. Review (a flashcard)
-4. The home-screen widget
-5. Themes (Beachside / Deep Ocean / Sunset)
+**✅ Ready to upload:** six spec-size captures live in `docs/screenshots/appstore/`
+(taken on an iPhone 17 Pro Max simulator, 9:41 status bar, demo data, real
+generated answers):
 
-Capture clean ones from a 6.9" simulator:
+1. `01-home` — streak mascot + check-in CTA + Day-3 recall card + nudges
+2. `02-ask` — a generated answer with date citations
+3. `03-review` — a revealed flashcard with the rating row
+4. `04-digest` — the generated weekly reflection
+5. `05-settings` — themes, reminders, and the widget previews
+6. `06-home-sunset` — Home in the signature Sunset theme, sun beaming
+
+**To regenerate** (e.g. after UI changes) run the screenshot harness:
 ```bash
-xcrun simctl boot "iPhone 16 Pro Max"        # a 6.9" device
-xcrun simctl io "iPhone 16 Pro Max" screenshot shot1.png
+cd ios && xcodegen generate
+xcrun simctl erase "iPhone 17 Pro Max" && xcrun simctl boot "iPhone 17 Pro Max"
+xcrun simctl status_bar "iPhone 17 Pro Max" override --time "9:41" \
+  --wifiBars 3 --cellularBars 4 --batteryState charged --batteryLevel 100
+xcodebuild test -project Kairo.xcodeproj -scheme KairoScreenshots \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -resultBundlePath build/screens.xcresult CODE_SIGNING_ALLOWED=NO
+xcrun xcresulttool export attachments --path build/screens.xcresult \
+  --output-path ../docs/screenshots/appstore
 ```
-(Optional: add framed/marketing versions; plain device screenshots are accepted.)
+(The harness drives the cloud answer path, so the proxy must be configured.
+Optional: add framed/marketing versions; plain device screenshots are accepted.)
 
 - [ ] App icon: ✅ already in `ios/Kairo/Assets.xcassets/AppIcon.appiconset` (1024×1024, no alpha).
 

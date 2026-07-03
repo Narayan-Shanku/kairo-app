@@ -97,6 +97,23 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.kairomemory.kairo.tests
         GENERATE_INFOPLIST_FILE: YES
 
+  # App Store screenshot harness (see KairoUITests/ScreenshotTests.swift).
+  # Kept out of the main Kairo scheme so `xcodebuild test` stays fast and
+  # doesn't hit the cloud answer path on every run.
+  KairoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: KairoUITests
+    dependencies:
+      - target: Kairo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kairomemory.kairo.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+
 schemes:
   Kairo:
     build:
@@ -107,3 +124,14 @@ schemes:
     test:
       targets:
         - KairoTests
+
+  KairoScreenshots:
+    build:
+      targets:
+        Kairo: all
+        KairoUITests: [test]
+    run:
+      config: Debug
+    test:
+      targets:
+        - KairoUITests
