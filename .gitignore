@@ -33,3 +33,7 @@ docs/INVESTOR_NARRATIVE.md
 .DS_Store
 .idea/
 .vscode/
+
+# Cloudflare Worker (proxy/) local state + deps
+.wrangler/
+node_modules/

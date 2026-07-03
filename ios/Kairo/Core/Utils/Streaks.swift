@@ -15,6 +15,15 @@ enum StreakCalc {
         return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
     }
 
+    /// Local calendar-day (YYYY-MM-DD) for an ISO-8601 timestamp. Memories are
+    /// stored with UTC timestamps, but streaks are counted in the user's *local*
+    /// day — so we convert to local rather than slicing the UTC date off the
+    /// string (which would misfile evening captures in behind-UTC timezones).
+    static func localDay(fromISO isoString: String) -> String {
+        if let d = ISO8601DateFormatter().date(from: isoString) { return iso(d) }
+        return String(isoString.prefix(10))
+    }
+
     static func current(_ dates: Set<String>) -> Int {
         let cal = Calendar.current
         var day = Date()

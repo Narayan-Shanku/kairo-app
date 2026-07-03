@@ -25,3 +25,33 @@ struct EmbeddingService {
         return denom == 0 ? 0 : dot / denom
     }
 }
+
+/// Splits an entry into sentence-ish chunks for finer-grained retrieval. Short
+/// entries stay whole; tiny fragments are merged into their neighbour.
+enum TextChunker {
+    static func chunks(_ text: String, minChars: Int = 40, wholeUnder: Int = 200) -> [String] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= wholeUnder else { return [trimmed] }
+
+        let tokenizer = NLTokenizer(unit: .sentence)
+        tokenizer.string = trimmed
+        var sentences: [String] = []
+        tokenizer.enumerateTokens(in: trimmed.startIndex..<trimmed.endIndex) { range, _ in
+            let s = trimmed[range].trimmingCharacters(in: .whitespacesAndNewlines)
+            if !s.isEmpty { sentences.append(s) }
+            return true
+        }
+        guard sentences.count > 1 else { return [trimmed] }
+
+        // Merge tiny fragments (e.g. "Yes.") into the previous chunk.
+        var merged: [String] = []
+        for s in sentences {
+            if let last = merged.last, last.count < minChars {
+                merged[merged.count - 1] = last + " " + s
+            } else {
+                merged.append(s)
+            }
+        }
+        return merged
+    }
+}

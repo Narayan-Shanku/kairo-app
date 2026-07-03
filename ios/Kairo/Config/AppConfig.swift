@@ -24,4 +24,21 @@ enum AppConfig {
     /// Set when pointing at a secured/deployed backend (KAIRO_API_TOKEN). When
     /// nil (local), no auth header is sent.
     static let apiToken: String? = nil
+
+    /// Stateless cloud-generation proxy, used ONLY when on-device generation
+    /// (Apple Foundation Models) is unavailable — i.e. iPhones without Apple
+    /// Intelligence (iPhone 11–14, SE, …). The phone still does capture,
+    /// embedding, and retrieval locally; only the already-built prompt (the
+    /// top-k retrieved snippets + the question) is sent here, and the proxy holds
+    /// the LLM API key — never the app. Leave nil to stay fully on-device (older
+    /// devices then degrade to extractive answers). Must be HTTPS.
+    ///   e.g. URL(string: "https://kairo-generation-proxy.<you>.workers.dev")
+    static let cloudGenerationURL: URL? = nil   // set to your deployed proxy URL (see proxy/README.md)
+
+    /// Shared secret the proxy requires (must match the Worker's SHARED_TOKEN).
+    /// This is a low-value abuse-control gate, NOT a real secret — it ships in
+    /// the app binary, so the proxy's daily cap is the actual cost ceiling. Set
+    /// to nil to send no auth header (only if the proxy has no SHARED_TOKEN).
+    /// NOTE: keep the real URL/token as a local-only diff — never commit them.
+    static let cloudGenerationToken: String? = nil
 }

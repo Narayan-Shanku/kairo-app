@@ -6,6 +6,11 @@ protocol CardRepository {
     func due(limit: Int) async throws -> [Card]
     func stats() async throws -> CardStats
     func review(cardId: String, rating: Rating, reflection: String?) async throws -> ReviewResult
+    /// Best-effort: distill new review cards from recent memories that don't have
+    /// one yet. Returns how many were created. On-device this runs generation;
+    /// the backend already generates cards during ingest, so the remote impl is a
+    /// no-op.
+    func generateMissing(limit: Int) async -> Int
 }
 
 struct DefaultCardRepository: CardRepository {
@@ -39,4 +44,7 @@ struct DefaultCardRepository: CardRepository {
     func review(cardId: String, rating: Rating, reflection: String?) async throws -> ReviewResult {
         try await api.review(cardId: cardId, rating: rating, reflection: reflection)
     }
+
+    // The backend distills cards during ingest, so the client doesn't drive it.
+    func generateMissing(limit: Int) async -> Int { 0 }
 }

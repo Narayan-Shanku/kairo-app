@@ -27,6 +27,13 @@ final class ReviewViewModel {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+
+        // Fill the deck: distill any not-yet-processed memories, then refresh the
+        // queue so freshly generated cards appear. Runs after the initial load so
+        // existing due cards show immediately.
+        if await cards.generateMissing(limit: 8) > 0 {
+            queue = (try? await cards.due(limit: 50)) ?? queue
+        }
     }
 
     func reveal() { revealed = true }
@@ -35,7 +42,7 @@ final class ReviewViewModel {
         guard let card = current else { return }
         let note = (card.isDecision && !reflection.trimmingCharacters(in: .whitespaces).isEmpty)
             ? reflection : nil
-        try? await cards.review(cardId: card.id, rating: rating, reflection: note)
+        _ = try? await cards.review(cardId: card.id, rating: rating, reflection: note)
         if !queue.isEmpty { queue.removeFirst() }
         revealed = false
         reflection = ""

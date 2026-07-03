@@ -7,6 +7,7 @@ struct LocalMemoryRepository: MemoryRepository {
     let embedding = EmbeddingService()
     let classifier = DomainClassifier()
     let generation = GenerationService()
+    let cloud = CloudGenerationService()   // used only when on-device is unavailable
 
     static func nowISO() -> String { ISO8601DateFormatter().string(from: Date()) }
 
@@ -31,12 +32,18 @@ struct LocalMemoryRepository: MemoryRepository {
     func captureText(_ text: String) async throws -> CaptureSummary {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let domains = classifier.classify(trimmed)
+        // Chunk long entries so retrieval matches at sentence granularity; short
+        // entries stay whole (chunks == nil → the whole-entry embedding is used).
+        let pieces = TextChunker.chunks(trimmed)
+        let chunks: [OnDeviceStore.Chunk]? = pieces.count > 1
+            ? pieces.map { OnDeviceStore.Chunk(text: $0, embedding: embedding.embed($0) ?? []) }
+            : nil
         let m = OnDeviceStore.StoredMemory(
             chunkId: UUID().uuidString, text: trimmed, domains: domains,
             timestamp: Self.nowISO(), sourceType: "text",
-            embedding: embedding.embed(trimmed) ?? [])
+            embedding: embedding.embed(trimmed) ?? [], chunks: chunks)
         await store.addMemory(m)
-        return CaptureSummary(chunkCount: 1, wordCount: trimmed.split(separator: " ").count,
+        return CaptureSummary(chunkCount: pieces.count, wordCount: trimmed.split(separator: " ").count,
                               domains: domains, transcript: nil)
     }
 
@@ -46,11 +53,23 @@ struct LocalMemoryRepository: MemoryRepository {
             return RAGResponse(answer: "I don't have any memories yet — capture a check-in first.",
                                sources: [], confidence: 0)
         }
+        // Relevance floor: if nothing plausibly matches, say so honestly rather
+        // than forcing unrelated memories on the model.
+        guard hasRelevant(question, mems) else {
+            return RAGResponse(
+                answer: "I don't have anything relevant to that yet. Capture a check-in about it, then ask again.",
+                sources: [], confidence: 0)
+        }
         let ranked = rank(question, mems, limit: 5)
-        if let answer = await generation.generate(buildPrompt(question, ranked)) {
+        let prompt = buildPrompt(question, ranked)
+        // On-device (Apple Foundation Models) first; on iPhones without Apple
+        // Intelligence, fall back to the cloud proxy if one is configured.
+        var answer = await generation.generate(prompt)
+        if answer == nil { answer = await cloud.generate(prompt) }
+        if let answer {
             return RAGResponse(answer: answer, sources: ranked.map(toSource), confidence: 1)
         }
-        // Fallback (device without Apple Intelligence): extractive recall.
+        // Last resort (no on-device AI, no cloud proxy): extractive recall.
         let body = ranked.map { "• \(DateFormat.pretty($0.timestamp)): \($0.text)" }.joined(separator: "\n\n")
         return RAGResponse(
             answer: "On-device AI isn't available on this device — here are your most relevant memories:\n\n\(body)",
@@ -77,23 +96,74 @@ struct LocalMemoryRepository: MemoryRepository {
 
     // MARK: - Ranking & prompt
 
+    /// Hybrid retrieval: semantic (best-matching chunk) + keyword overlap, fused
+    /// via Reciprocal Rank Fusion so exact-term and semantic matches both count.
     private func rank(_ q: String, _ mems: [OnDeviceStore.StoredMemory], limit: Int) -> [OnDeviceStore.StoredMemory] {
-        if let qv = embedding.embed(q) {
-            let scored = mems.compactMap { m -> (OnDeviceStore.StoredMemory, Double)? in
-                m.embedding.isEmpty ? nil : (m, EmbeddingService.cosine(qv, m.embedding))
-            }
-            let ranked = scored.sorted { $0.1 > $1.1 }.prefix(limit).map(\.0)
-            if !ranked.isEmpty { return Array(ranked) }
-        }
-        // Keyword fallback.
+        let qv = embedding.embed(q)
+        let semantic: [OnDeviceStore.StoredMemory] = qv == nil ? [] : mems
+            .map { ($0, bestChunkScore($0, query: qv!)) }
+            .filter { $0.1 > 0 }
+            .sorted { $0.1 > $1.1 }
+            .map(\.0)
+
         let terms = Set(tokenize(q))
-        let scored = mems.map { ($0, terms.intersection(tokenize($0.text)).count) }
-            .filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }.prefix(limit).map(\.0)
-        return Array(scored)
+        let keyword: [OnDeviceStore.StoredMemory] = terms.isEmpty ? [] : mems
+            .map { ($0, terms.intersection(tokenize($0.text)).count) }
+            .filter { $0.1 > 0 }
+            .sorted { $0.1 > $1.1 }
+            .map(\.0)
+
+        let fused = rrf(semantic, keyword)
+        // Neither signal produced a hit (no embeddings + no term overlap): fall
+        // back to most-recent so offline search still has something to show.
+        let result = fused.isEmpty ? mems.sorted { $0.timestamp > $1.timestamp } : fused
+        return Array(result.prefix(limit))
+    }
+
+    /// Best cosine over a memory's chunks (finer than whole-entry); falls back to
+    /// the whole-entry embedding for memories captured before chunking existed.
+    private func bestChunkScore(_ m: OnDeviceStore.StoredMemory, query: [Double]) -> Double {
+        if let chunks = m.chunks, !chunks.isEmpty {
+            return chunks.compactMap { $0.embedding.isEmpty ? nil : EmbeddingService.cosine(query, $0.embedding) }.max() ?? 0
+        }
+        return m.embedding.isEmpty ? 0 : EmbeddingService.cosine(query, m.embedding)
+    }
+
+    /// Reciprocal Rank Fusion (k = 60) over two ranked lists, keyed by memory id.
+    private func rrf(_ a: [OnDeviceStore.StoredMemory], _ b: [OnDeviceStore.StoredMemory], k: Double = 60) -> [OnDeviceStore.StoredMemory] {
+        var score: [String: Double] = [:]
+        var byId: [String: OnDeviceStore.StoredMemory] = [:]
+        for (i, m) in a.enumerated() { score[m.chunkId, default: 0] += 1 / (k + Double(i + 1)); byId[m.chunkId] = m }
+        for (i, m) in b.enumerated() { score[m.chunkId, default: 0] += 1 / (k + Double(i + 1)); byId[m.chunkId] = m }
+        return score.sorted { $0.value > $1.value }.compactMap { byId[$0.key] }
+    }
+
+    /// Whether any memory plausibly relates to the question — a keyword hit, or a
+    /// semantic score above a conservative floor. Gates the "nothing relevant"
+    /// short-circuit; the keyword OR keeps it from over-filtering good queries.
+    private func hasRelevant(_ q: String, _ mems: [OnDeviceStore.StoredMemory]) -> Bool {
+        let terms = Set(tokenize(q))
+        if !terms.isEmpty, mems.contains(where: { !terms.intersection(tokenize($0.text)).isEmpty }) { return true }
+        guard let qv = embedding.embed(q) else { return false }
+        // Conservative floor: catch clearly-off-topic questions only. The grounding
+        // prompt is the fine relevance filter, so we err toward letting the LLM judge.
+        return mems.contains { bestChunkScore($0, query: qv) >= 0.15 }
     }
 
     private func tokenize(_ s: String) -> Set<String> {
-        Set(s.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count > 2 })
+        Set(s.lowercased().split { !$0.isLetter && !$0.isNumber }
+            .map(String.init).filter { $0.count > 2 }.map(Self.stem))
+    }
+
+    /// Light suffix stemmer so morphological variants match (bloating/bloated →
+    /// bloat, triggers → trigger). Mirrors the backend's keyword stemming.
+    private static func stem(_ word: String) -> String {
+        for suffix in ["ing", "edly", "ed", "ies", "es", "ment", "ly", "s"] {
+            if word.count > suffix.count + 2, word.hasSuffix(suffix) {
+                return String(word.dropLast(suffix.count))
+            }
+        }
+        return word
     }
 
     private func toSource(_ m: OnDeviceStore.StoredMemory) -> Source {

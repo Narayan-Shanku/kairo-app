@@ -8,11 +8,14 @@ struct LocalProactiveRepository: ProactiveRepository {
     let store: OnDeviceStore
     let memories: MemoryRepository
     let generation = GenerationService()
+    let cloud = CloudGenerationService()   // used only when on-device is unavailable
 
     func today() async throws -> ProactiveToday {
         let mems = await store.memories
         // A "check-in day" = any day you captured a memory OR tapped Check in.
-        let dates = Set(mems.map { String($0.timestamp.prefix(10)) })
+        // Convert UTC timestamps to the user's local day so evening captures in
+        // behind-UTC timezones still count toward today's streak.
+        let dates = Set(mems.map { StreakCalc.localDay(fromISO: $0.timestamp) })
             .union(await store.checkInDates)
         let streak = Streak(current: StreakCalc.current(dates),
                             longest: StreakCalc.longest(dates),
@@ -65,7 +68,12 @@ struct LocalProactiveRepository: ProactiveRepository {
                           digestText: "No memories captured this week yet — check in to build your digest.",
                           memoryCount: 0)
         }
-        let text = await generation.generate(digestPrompt(recent)) ?? templateDigest(recent)
+        // On-device (Apple Foundation Models) first; cloud proxy if configured
+        // (older devices); template as the final offline fallback.
+        let prompt = digestPrompt(recent)
+        var generated = await generation.generate(prompt)
+        if generated == nil { generated = await cloud.generate(prompt) }
+        let text = generated ?? templateDigest(recent)
         let d = Digest(weekStart: weekStart, weekEnd: weekEnd, digestText: text, memoryCount: recent.count)
         if let s = encode(d) { await store.setPref("digest:\(weekStart)", s) }
         return d

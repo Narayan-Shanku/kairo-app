@@ -46,6 +46,14 @@ final class HomeViewModel {
         } catch {
             errorMessage = "Can't reach Kairō. Is the server running? (\(error.localizedDescription))"
         }
+        // Distill review cards from recent memories in the background, then
+        // refresh the review badge if any were created. Non-blocking.
+        Task { [weak self] in
+            guard let self else { return }
+            if await self.cards.generateMissing(limit: 8) > 0 {
+                self.cardStats = try? await self.cards.stats()
+            }
+        }
     }
 
     func checkIn() async {

@@ -54,6 +54,8 @@ final class MockCardRepository: CardRepository {
         reviews.append((cardId, rating, reflection))
         return ReviewResult(intervalDays: 1, nextReview: "Jun 18", createdMemory: reflection != nil)
     }
+    var generatedCount = 0
+    func generateMissing(limit: Int) async -> Int { generatedCount }
 }
 
 final class MockProactiveRepository: ProactiveRepository {
@@ -69,6 +71,10 @@ final class MockProactiveRepository: ProactiveRepository {
     private(set) var dismissed: [String] = []
 
     func today() async throws -> ProactiveToday {
+        if let throwError { throw throwError }
+        return todayResult
+    }
+    func checkIn() async throws -> ProactiveToday {
         if let throwError { throw throwError }
         return todayResult
     }

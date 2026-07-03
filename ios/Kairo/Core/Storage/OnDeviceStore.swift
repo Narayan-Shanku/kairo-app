@@ -5,13 +5,21 @@ import Foundation
 /// single JSON file in Documents. No server, no database engine.
 @MainActor
 final class OnDeviceStore {
+    /// A retrieval unit within a memory — a sentence-ish slice with its own
+    /// embedding, so long entries match at finer granularity.
+    struct Chunk: Codable {
+        var text: String
+        var embedding: [Double]
+    }
+
     struct StoredMemory: Codable {
         var chunkId: String
         var text: String
         var domains: [String]
         var timestamp: String      // ISO-8601
         var sourceType: String
-        var embedding: [Double]
+        var embedding: [Double]           // whole-entry embedding (fallback + short entries)
+        var chunks: [Chunk]? = nil        // finer-grained chunks (long entries); nil → use `embedding`
         var asMemory: Memory {
             Memory(chunkId: chunkId, text: text, domains: domains,
                    timestamp: timestamp, sourceType: sourceType)
@@ -31,6 +39,7 @@ final class OnDeviceStore {
         var repetitions: Int
         var lapses: Int
         var lastReviewed: String?
+        var sourceMemoryId: String? = nil   // the memory this card was distilled from
         var asCard: Card {
             Card(cardId: cardId, type: type, front: front, back: back, domain: domain)
         }
@@ -99,6 +108,19 @@ final class OnDeviceStore {
     // MARK: Prefs
     func pref(_ key: String) -> String? { data.prefs[key] }
     func setPref(_ key: String, _ value: String) { data.prefs[key] = value; save() }
+
+    // MARK: Card-generation bookkeeping
+    /// Memory ids we've already tried to distill into a card (whether or not one
+    /// resulted), so generation never reprocesses the same memory.
+    var cardAttempted: Set<String> {
+        Set((data.prefs["card_attempted"] ?? "").split(separator: "\n").map(String.init))
+    }
+    func markCardAttempted(_ id: String) {
+        var ids = cardAttempted
+        ids.insert(id)
+        data.prefs["card_attempted"] = ids.joined(separator: "\n")
+        save()
+    }
 
     // MARK: Persistence
     private func save() {

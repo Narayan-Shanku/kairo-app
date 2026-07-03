@@ -1,0 +1,20 @@
+name = "kairo-generation-proxy"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Model used for cloud generation. Default is the highest-quality option.
+# For a mobile RAG answer (a short, grounded 1–2 sentence reply) you can switch
+# to Haiku for lower latency and ~5x lower cost — flip this and redeploy:
+#   MODEL = "claude-haiku-4-5"
+[vars]
+MODEL = "claude-haiku-4-5"
+DAILY_CAP = "200"          # max forwarded requests per UTC day (raise as needed)
+
+# KV namespace backing the daily-cap counter.
+[[kv_namespaces]]
+binding = "USAGE"
+id = "143eb595e0714c4981ebbc85a6f78bc6"
+
+# Secrets are NOT stored here. Set them with wrangler (they're encrypted):
+#   npx wrangler secret put ANTHROPIC_API_KEY   # required
+#   npx wrangler secret put SHARED_TOKEN        # must match AppConfig.cloudGenerationToken
