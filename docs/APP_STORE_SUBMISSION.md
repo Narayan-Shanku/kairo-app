@@ -54,8 +54,11 @@ are already done; the main gate is the **paid Apple Developer account**.
 > own past words, with the dates it came from. If it doesn't know, it says so. It
 > never makes things up.
 >
-> Everything runs on your iPhone. Your memories never leave your device — no account,
-> no cloud, no tracking.
+> Private by design: your memories are stored only on your iPhone — no account, no
+> sign-in, no tracking. On iPhones with Apple Intelligence, answers are generated
+> entirely on-device. On other iPhones, only the few snippets needed to answer a
+> question are sent to a private answer service — and you can turn that off in
+> Settings to stay fully on-device.
 >
 > • Capture by voice or text, transcribed on-device
 > • Ask anything and get cited answers from your own history
@@ -80,14 +83,22 @@ are already done; the main gate is the **paid Apple Developer account**.
 
 ## 3. App Privacy ("nutrition label")
 
-Kairō is on-device, so this is short — answer in App Store Connect → App Privacy:
+The shipped build sends retrieved snippets + the question to the cloud answer
+service on non-Apple-Intelligence devices, so **"Data Not Collected" is no longer
+accurate**. Answer in App Store Connect → App Privacy:
 
-- [ ] **Data collection:** *Data Not Collected.* (The standalone app stores everything
-      locally and sends nothing to a server.)
+- [ ] **Data collection: Yes** → declare **User Content → Other User Content**
+      - Used for: **App Functionality** only
+      - Linked to identity: **No** (no accounts, no user identifiers are sent)
+      - Used for tracking: **No**
+- [ ] Everything else (contact info, identifiers, location, usage data,
+      diagnostics…): **not collected**.
 - [ ] **Privacy policy URL** (required): host `docs/privacy.html`
-      (GitHub Pages, Netlify, or any static host) and paste the URL.
-- [ ] If you later enable encrypted sync, update this to disclose the encrypted blob
-      upload (still zero-knowledge — the server can't read it).
+      (GitHub Pages, Netlify, or any static host) and paste the URL. The policy
+      already discloses the cloud answer path, Cloudflare + Anthropic as
+      processors, and the Settings opt-out.
+- [ ] If you later enable encrypted sync, add the encrypted blob upload
+      (still zero-knowledge — the server can't read it).
 
 ---
 
@@ -124,9 +135,14 @@ xcrun simctl io "iPhone 16 Pro Max" screenshot shot1.png
 ## 6. Build settings to confirm before archiving
 
 - [ ] In `ios/project.yml`, set your `DEVELOPMENT_TEAM` (or pick the team in Xcode).
-- [ ] Add **`ITSAppUsesNonExemptEncryption = false`** to the app's Info.plist
-      (Kairō uses only standard/exempt encryption) so you skip the export-compliance
-      prompt on every upload.
+- [x] **`ITSAppUsesNonExemptEncryption = false`** — already set in `ios/project.yml`
+      (Kairō uses only standard/exempt encryption), so the export-compliance prompt
+      is skipped on every upload.
+- [ ] **Cloud answers config:** confirm `AppConfig.cloudGenerationURL` and
+      `cloudGenerationToken` hold the real proxy values in your **local** tree at
+      archive time (they are committed as `nil` placeholders — the real values live
+      only as a local uncommitted diff). Archiving from a fresh clone would silently
+      ship with cloud answers off.
 - [ ] Bump `MARKETING_VERSION` (e.g. `1.0.0`) and `CURRENT_PROJECT_VERSION` per upload.
 - [ ] Confirm the App Group entitlement is present on **both** the app and widget targets.
 
@@ -163,15 +179,19 @@ xcodebuild -exportArchive -archivePath build/Kairo.xcarchive \
 
 ## 9. App Review notes (paste into "Notes for Review")
 
-> Kairō runs entirely on-device — no login or server. To test:
+> Kairō requires no login, account, or credentials. To test:
 > 1. On first launch, load the demo data (or capture a check-in by voice/text).
-> 2. Open **Ask** and ask a question; the answer is generated on-device and cites
->    the source memories.
-> 3. On-device answer generation uses Apple Intelligence (Foundation Models) and
->    requires a supported device with Apple Intelligence enabled
->    (Settings → Apple Intelligence & Siri). On unsupported devices the app still
->    works; answers fall back to extractive results.
-> No account or credentials are required.
+> 2. Open **Ask** and ask a question (e.g. "what triggers my bloating?"); the
+>    answer is grounded in the stored memories and cites their dates.
+> 3. Answer generation runs on-device via Apple Intelligence (Foundation Models)
+>    on supported devices. On devices without Apple Intelligence, the app sends
+>    only the few retrieved memory snippets + the question over HTTPS to our
+>    stateless answer service (disclosed in the privacy policy; declared as
+>    User Content / App Functionality / Not Linked). This can be disabled in
+>    Settings → "Use private cloud for answers", after which the app is fully
+>    on-device and Ask returns the most relevant memories instead.
+> All other features (capture, transcription, search, review, streaks, widget)
+> are fully on-device.
 
 ---
 
@@ -179,10 +199,15 @@ xcodebuild -exportArchive -archivePath build/Kairo.xcarchive \
 
 - [ ] Paid account active · App ID + App Group registered
 - [ ] Metadata, keywords, category, privacy policy URL set
-- [ ] App Privacy = Data Not Collected
+- [ ] App Privacy = User Content (App Functionality, Not Linked, No Tracking)
+- [ ] Privacy policy (hosted) matches the shipped cloud-answers behavior
 - [ ] 6.9" screenshots uploaded · icon present
-- [ ] `ITSAppUsesNonExemptEncryption = false`
-- [ ] Release build archived & uploaded · TestFlight smoke-tested
+- [x] `ITSAppUsesNonExemptEncryption = false` (in project.yml)
+- [ ] Real proxy URL + token present in the local tree at archive time
+- [ ] Proxy live-checked (`curl` smoke test) + `DAILY_CAP` set to a value you're
+      comfortable paying for at public scale
+- [ ] Release build archived & uploaded · TestFlight smoke-tested on BOTH an
+      Apple-Intelligence device and a non-AI device/Simulator (cloud path)
 - [ ] Submit for Review 🚀
 
 ---
@@ -194,5 +219,12 @@ xcodebuild -exportArchive -archivePath build/Kairo.xcarchive \
 - **App Groups need the paid account** — the widget's app↔widget data bridge won't
   provision on a free team. Local notifications (reminders) do **not** need it.
 - **Foundation Models** — only on Apple-Intelligence devices/iOS 26+. The code already
-  guards with `#available` and degrades gracefully; call this out in review notes so
-  it isn't flagged as "feature not working."
+  guards with `#available` and degrades gracefully (cloud answers → extractive); call
+  this out in review notes so it isn't flagged as "feature not working."
+- **Cloud answers at public scale** — the proxy is a personal Cloudflare Worker on
+  your own Anthropic key. The `DAILY_CAP` (proxy/wrangler.toml) is the global cost
+  ceiling shared by ALL users; size it deliberately before launch, and remember you
+  can rotate `SHARED_TOKEN` + redeploy in about a minute if it's ever abused.
+- **Reviewers likely test on non-AI hardware** — App Review may exercise the cloud
+  path, so the App Privacy label and policy MUST be accurate before submitting;
+  "Data Not Collected" with observable network calls is a rejection (Guideline 5.1.1/5.1.2).

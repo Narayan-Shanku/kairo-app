@@ -107,7 +107,8 @@ struct SettingsView: View {
                     }
                     LabeledContent("Transcription",
                                    value: AppConfig.useOnDeviceTranscription ? "On-device" : "Server")
-                    LabeledContent("Version", value: "0.2.0")
+                    LabeledContent("Version",
+                                   value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                 } header: {
                     Text("About")
                 } footer: {

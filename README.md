@@ -133,8 +133,11 @@ v1 is feature-complete and **running on real hardware**; pre-App-Store. See
 
 ## Privacy
 
-Everything runs on your device. Memories, embeddings, and audio never leave it.
-On the server build, data lives in `~/.kairo` and is excluded from version control.
+Your memory store, embeddings, and audio live on your device and are never
+uploaded. On Apple-Intelligence iPhones, answers are generated fully on-device;
+on other iPhones, only the few retrieved snippets + the question go to a
+stateless answer proxy ([`proxy/`](proxy/)) — opt-out in Settings. On the server
+build, data lives in `~/.kairo` and is excluded from version control.
 See [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
 ## Documentation
