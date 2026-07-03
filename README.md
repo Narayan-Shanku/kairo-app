@@ -142,11 +142,16 @@ See [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
 ## Documentation
 
+**[📚 Documentation map](docs/README.md)** — organized by [Diátaxis](https://diataxis.fr):
+tutorials (get started on [iOS](docs/tutorials/getting-started-ios.md) or the
+[web engine](docs/tutorials/getting-started-web.md)), how-to guides
+([sideload](docs/how-to/sideload-iphone.md) ·
+[cloud answers](docs/how-to/set-up-cloud-answers.md) ·
+[App Store](docs/APP_STORE_SUBMISSION.md) · [MCP](docs/MCP_SETUP.md)),
+[reference](docs/reference/ios-architecture.md), and
+[explanation](docs/explanation/design-decisions.md).
+
 - [`BUILD_LOG.md`](BUILD_LOG.md) — running record of everything built
-- [`docs/APP_STORE_SUBMISSION.md`](docs/APP_STORE_SUBMISSION.md) — App Store / TestFlight checklist
-- [`docs/MOBILE_ARCHITECTURE.md`](docs/MOBILE_ARCHITECTURE.md) — how Kairō runs on iPhone
-- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — deploy + zero-knowledge sync
-- [`docs/MCP_SETUP.md`](docs/MCP_SETUP.md) — connect Kairō to AI agents
 - [`docs/PRIVACY.md`](docs/PRIVACY.md) — privacy policy
 
 ## License
