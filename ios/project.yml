@@ -37,6 +37,9 @@ targets:
         NSSpeechRecognitionUsageDescription: "Kairō transcribes your voice check-ins on your device using Apple's Speech recognition."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Uses only standard/exempt encryption (HTTPS) — skips the export-compliance
+        # prompt on every upload.
+        ITSAppUsesNonExemptEncryption: false
         UIAppFonts:
           - DMSerifDisplay-Regular.ttf
           - DMSans.ttf
